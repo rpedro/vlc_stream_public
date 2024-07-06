@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>VLC Network Stream</title>
+    <style>
+        html, body {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: black;
+        }
+        #videoContainer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        #errorMessage {
+            color: white;
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            font-size: 18px;
+        }
+    </style>
+</head>
+<body>
+    <div id="videoContainer">
+        <video id="videoPlayer" controls autoplay>
+            Your browser does not support the video tag.
+        </video>
+        <div id="errorMessage"></div>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+    <script>
+        function getParameterByName(name) {
+            const urlParams = new URLSearchParams(window.location.search);
+            return urlParams.get(name);
+        }
+
+        const defaultStreamUrl = 'https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8';
+        const streamUrl = getParameterByName('src') || defaultStreamUrl;
+        
+        console.log("Stream URL: ", streamUrl);
+        
+        const videoPlayer = document.getElementById('videoPlayer');
+        const errorMessage = document.getElementById('errorMessage');
+        
+        if (Hls.isSupported()) {
+            const hls = new Hls();
+            hls.loadSource(streamUrl);
+            hls.attachMedia(videoPlayer);
+            hls.on(Hls.Events.MANIFEST_PARSED, function() {
+                videoPlayer.play();
+            });
+            hls.on(Hls.Events.ERROR, function(event, data) {
+                if (data.fatal) {
+                    switch (data.type) {
+                        case Hls.ErrorTypes.NETWORK_ERROR:
+                            console.error("Network error: ", data);
+                            errorMessage.textContent = "Failed to load the video stream due to network error.";
+                            break;
+                        case Hls.ErrorTypes.MEDIA_ERROR:
+                            console.error("Media error: ", data);
+                            errorMessage.textContent = "Failed to load the video stream due to media error.";
+                            hls.recoverMediaError();
+                            break;
+                        default:
+                            console.error("Fatal error: ", data);
+                            hls.destroy();
+                            errorMessage.textContent = "Failed to load the video stream due to a fatal error.";
+                            break;
+                    }
+                }
+            });
+        } else if (videoPlayer.canPlayType('application/vnd.apple.mpegurl')) {
+            videoPlayer.src = streamUrl;
+            videoPlayer.addEventListener('loadedmetadata', function() {
+                videoPlayer.play();
+            });
+            videoPlayer.addEventListener('error', function(event) {
+                console.error("Failed to load the video stream. Event: ", event);
+                errorMessage.textContent = "Failed to load the video stream.";
+            });
+        } else {
+            console.error("HLS is not supported in this browser.");
+            errorMessage.textContent = "Failed to load the video stream: HLS not supported.";
+        }
+    </script>
+</body>
+</html>
